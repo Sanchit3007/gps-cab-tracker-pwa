@@ -1,0 +1,209 @@
+:root {
+  --bg-dark: #0f172a;
+  --card-bg: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-blue: #3b82f6;
+  --accent-red: #ef4444;
+  --border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* --- BASE STYLES & RESET --- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  min-height: 100vh;
+  width: 100vw;
+  overflow-y: auto; 
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center; 
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 30px 15px; 
+}
+
+/* --- MAIN APP CONTAINER --- */
+.app-container {
+  width: 100%;
+  max-width: 420px; 
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- HEADER --- */
+header {
+  padding: 15px 20px;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 16px; 
+  margin-bottom: 12px;
+  /* Keeps the header floating at the top even when you scroll down */
+  position: sticky;
+  top: 15px;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+header h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 5px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.active {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  animation: pulse 2s infinite;
+}
+
+/* --- CARDS --- */
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; 
+  width: 100%;
+}
+
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 18px; 
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card h2 {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.card p {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* --- BUTTONS --- */
+button {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  color: white;
+  background-color: var(--accent-blue);
+  margin-top: 5px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button.stop-btn {
+  background-color: var(--accent-red);
+}
+
+button.secondary-btn {
+  background-color: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-main);
+  margin-top: 10px;
+}
+
+/* --- TABLE (HISTORY PANEL) --- */
+.history-section {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 15px;
+  margin-top: 5px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.table-container {
+  /* Let the table grow a bit more, but still scroll internally if there are hundreds of rows */
+  max-height: 250px; 
+  overflow-y: auto;
+  margin-top: 10px;
+  border-radius: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) var(--card-bg);
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: var(--card-bg);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background-color: var(--text-muted);
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+th, td {
+  padding: 10px 5px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+th {
+  background-color: #1e293b; /* Matches card bg to look seamless */
+  color: var(--text-muted);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
