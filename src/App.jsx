@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { initDB, addLocation, getAllLocations } from './db' // NEW: Imported getAllLocations
+import { initDB, addLocation, getAllLocations } from './db'
 import { calculateDistance } from './math'
 import { checkTraffic } from './traffic'
+import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps' 
 import './App.css'
 
 function App() {
@@ -10,7 +11,8 @@ function App() {
   const [idleState, setIdleState] = useState('Unknown')
   const [distanceMoved, setDistanceMoved] = useState(0)
   
-  // NEW: State for our History Log
+  const [mapCenter, setMapCenter] = useState(null) 
+  
   const [showHistory, setShowHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
 
@@ -66,13 +68,16 @@ function App() {
             }
           }
 
+          // Update general UI state
           setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setIdleState(currentStatus);
           lastLocationRef.current = { lat, lng };
+
+          
+          setMapCenter({ lat, lng });
           
           try {
             await addLocation(lat, lng, currentStatus);
-            // NEW: If history is open, refresh it automatically
             if (showHistory) loadHistory(); 
           } catch (error) {
             console.error('Database save failed:', error);
@@ -89,6 +94,7 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     setDistanceMoved(0);
+    setMapCenter(null); // Reset camera memory
     
     await requestWakeLock();
     captureLocation();
@@ -102,10 +108,8 @@ function App() {
     await releaseWakeLock();
   }
 
-  // --- NEW: HISTORY & EXPORT LOGIC ---
   const loadHistory = async () => {
     const data = await getAllLocations();
-    // Sort so the newest records are at the top
     setHistoryData(data.reverse()); 
   }
 
@@ -133,81 +137,108 @@ function App() {
     document.body.removeChild(link);
   }
 
+  const mapLat = location.lat !== '--' ? parseFloat(location.lat) : 0;
+  const mapLng = location.lng !== '--' ? parseFloat(location.lng) : 0;
+
   return (
     <div className="app-container">
       <header>
         <h1>Cab Tracker</h1>
-        {/* Upgraded Status Badge with pulsing animation */}
         <div className={`status-badge ${isTracking ? 'active' : ''}`}>
           {isTracking ? 'Tracking Active •' : 'Waiting...'}
         </div>
       </header>
 
-      <main>
-        <div className="card">
-          <h2>Current Location</h2>
-          <p>{location.lat} , {location.lng}</p>
-        </div>
-
-        <div className="card">
-          <h2>Last 30s Distance</h2>
-          <p>{distanceMoved} meters</p>
-        </div>
-        
-        <div className="card">
-          <h2>Idle Status</h2>
-          <p>{idleState}</p>
-        </div>
-
-        {/* Upgraded Buttons */}
-        {!isTracking ? (
-          <button onClick={handleStartTracking}>🚀 Start Tracking</button>
-        ) : (
-          <button className="stop-btn" onClick={handleStopTracking}>
-            ⏹ Stop Tracking
-          </button>
-        )}
-
-        {/* Upgraded Secondary Button */}
-        <button className="secondary-btn" onClick={toggleHistory}>
-          {showHistory ? 'Hide History Log' : '📄 View History Log'}
-        </button>
-
-        {showHistory && (
-          <div className="history-section">
-            <h2 style={{ color: '#94a3b8', fontSize: '0.9rem', textTransform: 'uppercase' }}>
-              Tracking History
-            </h2>
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Lat / Lng</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyData.length === 0 ? (
-                    <tr><td colSpan="3" style={{textAlign: 'center', color: '#94a3b8'}}>No data recorded yet.</td></tr>
-                  ) : (
-                    historyData.map((data) => (
-                      <tr key={data.timestamp}>
-                        <td>{new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                        <td style={{ color: '#94a3b8' }}>{data.lat.toFixed(4)}, {data.lng.toFixed(4)}</td>
-                        <td>{data.status.replace(/🚗|🛑|🚦|⏳/g, '')}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <button style={{ marginTop: '15px' }} onClick={exportToCSV}>
-              ⬇️ Export to CSV
-            </button>
+      <APIProvider apiKey={import.meta.env.VITE_GOOGLE_API_KEY}>
+        <main>
+          
+          <div className="map-card">
+            {location.lat === '--' ? (
+              <div className="map-placeholder">
+                📍 Click Start Tracking to view live map
+              </div>
+            ) : (
+              <Map
+                style={{ width: '100%', height: '100%', borderRadius: '8px' }}
+                defaultZoom={16}
+                
+                 
+                center={mapCenter || { lat: mapLat, lng: mapLng }}
+                onCameraChanged={(ev) => setMapCenter(ev.detail.center)}
+                
+                disableDefaultUI={true}
+                fullscreenControl={true} 
+                zoomControl={true} 
+                gestureHandling={'greedy'} 
+                draggableCursor={'grab'}
+                draggingCursor={'grabbing'}
+              >
+                <Marker position={{ lat: mapLat, lng: mapLng }} />
+              </Map>
+            )}
           </div>
-        )}
-      </main>
+
+          <div className="card">
+            <h2>Current Location</h2>
+            <p>{location.lat} , {location.lng}</p>
+          </div>
+
+          <div className="card">
+            <h2>Last 30s Status</h2>
+            <p style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>{idleState}</span>
+              <span style={{ color: '#94a3b8', fontSize: '1rem' }}>{distanceMoved}m</span>
+            </p>
+          </div>
+
+          {!isTracking ? (
+            <button onClick={handleStartTracking}>🚀 Start Tracking</button>
+          ) : (
+            <button className="stop-btn" onClick={handleStopTracking}>
+              ⏹ Stop Tracking
+            </button>
+          )}
+
+          <button className="secondary-btn" onClick={toggleHistory}>
+            {showHistory ? 'Hide History Log' : '📄 View History Log'}
+          </button>
+
+          {showHistory && (
+            <div className="history-section">
+              <h2 style={{ color: '#94a3b8', fontSize: '0.9rem', textTransform: 'uppercase' }}>
+                Tracking History
+              </h2>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Lat / Lng</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyData.length === 0 ? (
+                      <tr><td colSpan="3" style={{textAlign: 'center', color: '#94a3b8'}}>No data recorded yet.</td></tr>
+                    ) : (
+                      historyData.map((data) => (
+                        <tr key={data.timestamp}>
+                          <td>{new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                          <td style={{ color: '#94a3b8' }}>{data.lat.toFixed(4)}, {data.lng.toFixed(4)}</td>
+                          <td>{data.status.replace(/🚗|🛑|🚦|⏳/g, '')}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <button style={{ marginTop: '15px' }} onClick={exportToCSV}>
+                ⬇️ Export to CSV
+              </button>
+            </div>
+          )}
+        </main>
+      </APIProvider>
     </div>
   )
 }

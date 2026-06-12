@@ -113,6 +113,25 @@ main {
   font-weight: 600;
 }
 
+.map-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  border-radius: 14px;
+  height: 200px; /* Fixed height so it fits on screen */
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.map-placeholder {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 /* --- BUTTONS --- */
 button {
   width: 100%;
