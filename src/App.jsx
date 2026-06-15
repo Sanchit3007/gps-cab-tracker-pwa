@@ -10,7 +10,7 @@ function App() {
   const [isTracking, setIsTracking] = useState(false)
   const [location, setLocation] = useState({ lat: '--', lng: '--' })
   
-  // UPDATED 1: Default status is now set to Genuine Idle
+  
   const [idleState, setIdleState] = useState('Genuine Idle 🛑')
   
   const [distanceMoved, setDistanceMoved] = useState(0)
@@ -62,7 +62,7 @@ function App() {
             
             setDistanceMoved(dist.toFixed(2));
 
-            // UPDATED 2: Movement threshold increased to 20 meters to ignore GPS jitter
+            
             if (dist < 20) {
               setIdleState('Checking Traffic... ⏳');
               currentStatus = await checkTraffic(lat, lng);
@@ -70,7 +70,6 @@ function App() {
               currentStatus = 'Moving 🚗';
             }
           } else {
-            // If it's the very first ping, assume genuine idle instead of jumping straight to moving
             currentStatus = 'Genuine Idle 🛑';
           }
 
