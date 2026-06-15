@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-assignment */
 import { useState, useEffect, useRef } from 'react'
 import { initDB, addLocation, getAllLocations } from './db'
 import { calculateDistance } from './math'
@@ -8,11 +9,12 @@ import './App.css'
 function App() {
   const [isTracking, setIsTracking] = useState(false)
   const [location, setLocation] = useState({ lat: '--', lng: '--' })
-  const [idleState, setIdleState] = useState('Unknown')
+  
+  // UPDATED 1: Default status is now set to Genuine Idle
+  const [idleState, setIdleState] = useState('Genuine Idle 🛑')
+  
   const [distanceMoved, setDistanceMoved] = useState(0)
-  
   const [mapCenter, setMapCenter] = useState(null) 
-  
   const [showHistory, setShowHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
 
@@ -60,20 +62,21 @@ function App() {
             
             setDistanceMoved(dist.toFixed(2));
 
-            if (dist < 5) {
+            // UPDATED 2: Movement threshold increased to 20 meters to ignore GPS jitter
+            if (dist < 20) {
               setIdleState('Checking Traffic... ⏳');
               currentStatus = await checkTraffic(lat, lng);
             } else {
               currentStatus = 'Moving 🚗';
             }
+          } else {
+            // If it's the very first ping, assume genuine idle instead of jumping straight to moving
+            currentStatus = 'Genuine Idle 🛑';
           }
 
-          // Update general UI state
           setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setIdleState(currentStatus);
           lastLocationRef.current = { lat, lng };
-
-          
           setMapCenter({ lat, lng });
           
           try {
@@ -94,7 +97,7 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     setDistanceMoved(0);
-    setMapCenter(null); // Reset camera memory
+    setMapCenter(null);
     
     await requestWakeLock();
     captureLocation();
@@ -161,11 +164,8 @@ function App() {
               <Map
                 style={{ width: '100%', height: '100%', borderRadius: '8px' }}
                 defaultZoom={16}
-                
-                 
                 center={mapCenter || { lat: mapLat, lng: mapLng }}
                 onCameraChanged={(ev) => setMapCenter(ev.detail.center)}
-                
                 disableDefaultUI={true}
                 fullscreenControl={true} 
                 zoomControl={true} 

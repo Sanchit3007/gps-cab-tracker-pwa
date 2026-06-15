@@ -2,7 +2,7 @@ const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 export const checkTraffic = async (lat, lng) => {
   // FIXED: Check if the key is missing, undefined, or still set to a placeholder
-  if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_actual_long_api_key_goes_here') {
+  if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'AIzaSyDzqNHlv2Or0EAC07NLQdluRaWJosjExGU') {
     console.warn("No API Key detected! Returning simulated traffic data.");
     return Math.random() > 0.5 ? 'Traffic Idle 🚦' : 'Genuine Idle 🛑';
   }
@@ -16,7 +16,7 @@ export const checkTraffic = async (lat, lng) => {
     // 2. Build the Google Distance Matrix API URL
     // Note: If deployed to production, the CORS proxy may need to be removed or replaced 
     // with a dedicated backend function depending on Google's exact CORS policies.
-    const url = `https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api/distancematrix/json?origins=${lat},${lng}&destinations=${destLat},${destLng}&departure_time=now&key=${GOOGLE_API_KEY}`;
+    const url = `https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api/distancematrix/json?origins=${lat},${lng}&destinations=${destLat},${destLng}&departure_time=now&key=${'AIzaSyDzqNHlv2Or0EAC07NLQdluRaWJosjExGU'}`;
     
     const response = await fetch(url);
     const data = await response.json();
