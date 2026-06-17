@@ -41,19 +41,21 @@ const Polyline = ({ positions }) => {
 function App() {
   const [isTracking, setIsTracking] = useState(false)
   const [location, setLocation] = useState({ lat: '--', lng: '--' })
-  
   const [idleState, setIdleState] = useState('Genuine Idle 🛑')
-  
   const [distanceMoved, setDistanceMoved] = useState(0)
   const [mapCenter, setMapCenter] = useState(null) 
   const [showHistory, setShowHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
-
+  
+  
   const [pathCoords, setPathCoords] = useState([])
 
   const intervalRef = useRef(null)
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
+  
+  
+  const lastDBUpdateTimeRef = useRef(null) 
 
   useEffect(() => {
     initDB().then(() => {
@@ -84,43 +86,48 @@ function App() {
         async (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          let currentStatus = 'Moving 🚗';
-          let dist = 0;
+          const now = Date.now();
 
-          if (lastLocationRef.current) {
-            dist = calculateDistance(
-              lastLocationRef.current.lat, 
-              lastLocationRef.current.lng, 
-              lat, 
-              lng
-            );
-            
-            setDistanceMoved(dist.toFixed(2));
-
-            if (dist < 20) {
-              setDistanceMoved("0.00");
-              setIdleState('Checking Traffic... ⏳');
-              currentStatus = await checkTraffic(lat, lng);
-            } else {
-              setDistanceMoved(dist.toFixed(2));
-              currentStatus = 'Moving 🚗';
-            }
-          } else {
-            currentStatus = 'Genuine Idle 🛑';
-          }
-
-          setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
-          setIdleState(currentStatus);
-          lastLocationRef.current = { lat, lng };
-          setMapCenter({ lat, lng });
-        
-          setPathCoords(prev => [...prev, { lat, lng }]);
           
-          try {
-            await addLocation(lat, lng, currentStatus);
-            if (showHistory) loadHistory(); 
-          } catch (error) {
-            console.error('Database save failed:', error);
+          setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
+          setMapCenter({ lat, lng });
+          setPathCoords(prev => [...prev, { lat, lng }]);
+
+          
+          if (!lastDBUpdateTimeRef.current || now - lastDBUpdateTimeRef.current >= 30000) {
+            let currentStatus = 'Moving 🚗';
+            let dist = 0;
+
+            if (lastLocationRef.current) {
+              dist = calculateDistance(
+                lastLocationRef.current.lat, 
+                lastLocationRef.current.lng, 
+                lat, 
+                lng
+              );
+              
+              if (dist < 5) {
+                setDistanceMoved("0.00");
+                setIdleState('Checking Traffic... ⏳');
+                currentStatus = await checkTraffic(lat, lng);
+              } else {
+                setDistanceMoved(dist.toFixed(2));
+                currentStatus = 'Moving 🚗';
+              }
+            } else {
+              currentStatus = 'Genuine Idle 🛑';
+            }
+
+            setIdleState(currentStatus);
+            lastLocationRef.current = { lat, lng };
+            lastDBUpdateTimeRef.current = now; 
+            
+            try {
+              await addLocation(lat, lng, currentStatus);
+              if (showHistory) loadHistory(); 
+            } catch (error) {
+              console.error('Database save failed:', error);
+            }
           }
         },
         (error) => console.error('GPS Error:', error.message),
@@ -133,14 +140,16 @@ function App() {
     setIsTracking(true);
     setIdleState('Initializing...');
     lastLocationRef.current = null;
+    lastDBUpdateTimeRef.current = null; 
     setDistanceMoved(0);
     setMapCenter(null);
-    
-    setPathCoords([]); 
+    setPathCoords([]);
     
     await requestWakeLock();
     captureLocation();
-    intervalRef.current = setInterval(captureLocation, 30000); 
+    
+    
+    intervalRef.current = setInterval(captureLocation, 5000); 
   }
 
   const handleStopTracking = async () => {
@@ -150,6 +159,7 @@ function App() {
     await releaseWakeLock();
   }
 
+  
   const loadHistory = async () => {
     const data = await getAllLocations();
     setHistoryData(data.reverse()); 
@@ -212,8 +222,10 @@ function App() {
                 draggableCursor={'grab'}
                 draggingCursor={'grabbing'}
               >
+                {/* Live Marker */}
                 <Marker position={{ lat: mapLat, lng: mapLng }} />
                 
+                {/* Live Blue Tracking Line */}
                 {pathCoords.length > 1 && (
                   <Polyline positions={pathCoords} />
                 )}
