@@ -46,15 +46,11 @@ function App() {
   const [mapCenter, setMapCenter] = useState(null) 
   const [showHistory, setShowHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
-  
-  
   const [pathCoords, setPathCoords] = useState([])
 
-  const intervalRef = useRef(null)
+  const watchIdRef = useRef(null)
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
-  
-  
   const lastDBUpdateTimeRef = useRef(null) 
 
   useEffect(() => {
@@ -80,19 +76,28 @@ function App() {
     }
   };
 
-  const captureLocation = () => {
+  const handleStartTracking = async () => {
+    setIsTracking(true);
+    setIdleState('Initializing...');
+    lastLocationRef.current = null;
+    lastDBUpdateTimeRef.current = null; 
+    setDistanceMoved(0);
+    setMapCenter(null);
+    setPathCoords([]); 
+    
+    await requestWakeLock();
+    
+    
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
+      watchIdRef.current = navigator.geolocation.watchPosition(
         async (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           const now = Date.now();
 
-          
           setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setMapCenter({ lat, lng });
           setPathCoords(prev => [...prev, { lat, lng }]);
-
           
           if (!lastDBUpdateTimeRef.current || now - lastDBUpdateTimeRef.current >= 30000) {
             let currentStatus = 'Moving 🚗';
@@ -131,35 +136,24 @@ function App() {
           }
         },
         (error) => console.error('GPS Error:', error.message),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 } 
       );
     }
-  };
-
-  const handleStartTracking = async () => {
-    setIsTracking(true);
-    setIdleState('Initializing...');
-    lastLocationRef.current = null;
-    lastDBUpdateTimeRef.current = null; 
-    setDistanceMoved(0);
-    setMapCenter(null);
-    setPathCoords([]);
-    
-    await requestWakeLock();
-    captureLocation();
-    
-    
-    intervalRef.current = setInterval(captureLocation, 5000); 
   }
 
   const handleStopTracking = async () => {
     setIsTracking(false);
     setIdleState('Stopped');
-    clearInterval(intervalRef.current);
+    
+    
+    if (watchIdRef.current !== null && "geolocation" in navigator) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    
     await releaseWakeLock();
   }
 
-  
   const loadHistory = async () => {
     const data = await getAllLocations();
     setHistoryData(data.reverse()); 
@@ -222,10 +216,8 @@ function App() {
                 draggableCursor={'grab'}
                 draggingCursor={'grabbing'}
               >
-                {/* Live Marker */}
                 <Marker position={{ lat: mapLat, lng: mapLng }} />
                 
-                {/* Live Blue Tracking Line */}
                 {pathCoords.length > 1 && (
                   <Polyline positions={pathCoords} />
                 )}
