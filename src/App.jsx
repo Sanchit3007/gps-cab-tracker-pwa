@@ -3,14 +3,51 @@ import { useState, useEffect, useRef } from 'react'
 import { initDB, addLocation, getAllLocations } from './db'
 import { calculateDistance } from './math'
 import { checkTraffic } from './traffic'
-import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps' 
+// NEW 1: Imported useMap from the library
+import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps' 
 import './App.css'
+
+// NEW 2: The Custom Polyline Component to draw the path
+const Polyline = ({ positions }) => {
+  const map = useMap();
+  const polylineRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return;
+    
+    // Create the line if it doesn't exist yet
+    if (!polylineRef.current) {
+      polylineRef.current = new window.google.maps.Polyline({
+        path: positions,
+        geodesic: true,
+        strokeColor: '#3b82f6', // Premium matching blue accent color
+        strokeOpacity: 0.8,
+        strokeWeight: 5, // Thickness of the line
+      });
+      polylineRef.current.setMap(map);
+    } else {
+      // Update the line with new coordinates
+      polylineRef.current.setPath(positions);
+    }
+  }, [map, positions]);
+
+  // Clean up the line if the map closes
+  useEffect(() => {
+    return () => {
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+      }
+    };
+  }, []);
+
+  return null;
+};
 
 function App() {
   const [isTracking, setIsTracking] = useState(false)
   const [location, setLocation] = useState({ lat: '--', lng: '--' })
   
-  
+  // UPDATED 1: Default status is now set to Genuine Idle
   const [idleState, setIdleState] = useState('Genuine Idle 🛑')
   
   const [distanceMoved, setDistanceMoved] = useState(0)
@@ -18,12 +55,29 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
 
+  // NEW 3: Dedicated memory for the map's drawn path
+  const [pathCoords, setPathCoords] = useState([])
+
   const intervalRef = useRef(null)
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
 
   useEffect(() => {
-    initDB().then(() => console.log('IndexedDB Initialized!'));
+    initDB().then(async () => {
+      console.log('IndexedDB Initialized!');
+      
+      // NEW 4: Load past locations on startup to draw the existing path!
+      const data = await getAllLocations();
+      if (data && data.length > 0) {
+        // Sort chronologically and parse to numbers for the map
+        const sortedData = data.sort((a, b) => a.timestamp - b.timestamp);
+        const savedPath = sortedData.map(d => ({ 
+          lat: parseFloat(d.lat), 
+          lng: parseFloat(d.lng) 
+        }));
+        setPathCoords(savedPath);
+      }
+    });
   }, [])
 
   const requestWakeLock = async () => {
@@ -62,14 +116,16 @@ function App() {
             
             setDistanceMoved(dist.toFixed(2));
 
-            
             if (dist < 20) {
+              setDistanceMoved("0.00");
               setIdleState('Checking Traffic... ⏳');
               currentStatus = await checkTraffic(lat, lng);
             } else {
+              setDistanceMoved(dist.toFixed(2));
               currentStatus = 'Moving 🚗';
             }
           } else {
+
             currentStatus = 'Genuine Idle 🛑';
           }
 
@@ -77,6 +133,9 @@ function App() {
           setIdleState(currentStatus);
           lastLocationRef.current = { lat, lng };
           setMapCenter({ lat, lng });
+
+        
+          setPathCoords(prev => [...prev, { lat, lng }]);
           
           try {
             await addLocation(lat, lng, currentStatus);
@@ -155,7 +214,7 @@ function App() {
         <main>
           
           <div className="map-card">
-            {location.lat === '--' ? (
+            {location.lat === '--' && pathCoords.length === 0 ? (
               <div className="map-placeholder">
                 📍 Click Start Tracking to view live map
               </div>
@@ -173,6 +232,11 @@ function App() {
                 draggingCursor={'grabbing'}
               >
                 <Marker position={{ lat: mapLat, lng: mapLng }} />
+                
+
+                {pathCoords.length > 1 && (
+                  <Polyline positions={pathCoords} />
+                )}
               </Map>
             )}
           </div>
