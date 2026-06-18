@@ -186,9 +186,9 @@ function App() {
 
   
   const getStatusColor = (statusText) => {
-    if (statusText.includes('Moving')) return '#3b82f6'; 
+    if (statusText.includes('Moving')) return '#3b82f6';
+    if (statusText.includes('Traffic')) return '#eab308';
     if (statusText.includes('Idle')) return '#ef4444';
-    if (statusText.includes('Traffic')) return '#eab308'; 
     return '#94a3b8';
   }
 
@@ -239,7 +239,6 @@ function App() {
           <div className="card">
             <h2>Last 30s Status</h2>
             <p style={{ display: 'flex', justifyContent: 'space-between' }}>
-              {/* Also applied color coding to the live status indicator! */}
               <span style={{ color: getStatusColor(idleState), fontWeight: 'bold' }}>
                 {idleState}
               </span>
