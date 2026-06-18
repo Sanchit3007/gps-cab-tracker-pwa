@@ -87,7 +87,6 @@ function App() {
     
     await requestWakeLock();
     
-    
     if ("geolocation" in navigator) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         async (position) => {
@@ -98,7 +97,7 @@ function App() {
           setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setMapCenter({ lat, lng });
           setPathCoords(prev => [...prev, { lat, lng }]);
-          
+
           if (!lastDBUpdateTimeRef.current || now - lastDBUpdateTimeRef.current >= 30000) {
             let currentStatus = 'Moving 🚗';
             let dist = 0;
@@ -145,7 +144,6 @@ function App() {
     setIsTracking(false);
     setIdleState('Stopped');
     
-    
     if (watchIdRef.current !== null && "geolocation" in navigator) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -185,6 +183,14 @@ function App() {
 
   const mapLat = location.lat !== '--' ? parseFloat(location.lat) : 0;
   const mapLng = location.lng !== '--' ? parseFloat(location.lng) : 0;
+
+  
+  const getStatusColor = (statusText) => {
+    if (statusText.includes('Moving')) return '#3b82f6'; 
+    if (statusText.includes('Idle')) return '#ef4444';
+    if (statusText.includes('Traffic')) return '#eab308'; 
+    return '#94a3b8';
+  }
 
   return (
     <div className="app-container">
@@ -233,7 +239,10 @@ function App() {
           <div className="card">
             <h2>Last 30s Status</h2>
             <p style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>{idleState}</span>
+              {/* Also applied color coding to the live status indicator! */}
+              <span style={{ color: getStatusColor(idleState), fontWeight: 'bold' }}>
+                {idleState}
+              </span>
               <span style={{ color: '#94a3b8', fontSize: '1rem' }}>{distanceMoved}m</span>
             </p>
           </div>
@@ -272,7 +281,9 @@ function App() {
                         <tr key={data.timestamp}>
                           <td>{new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                           <td style={{ color: '#94a3b8' }}>{data.lat.toFixed(4)}, {data.lng.toFixed(4)}</td>
-                          <td>{data.status.replace(/🚗|🛑|🚦|⏳/g, '')}</td>
+                          <td style={{ color: getStatusColor(data.status), fontWeight: 'bold' }}>
+                            {data.status.replace(/🚗|🛑|🚦|⏳/g, '').trim()}
+                          </td>
                         </tr>
                       ))
                     )}
