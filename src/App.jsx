@@ -52,6 +52,9 @@ function App() {
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
   const lastDBUpdateTimeRef = useRef(null) 
+  
+  
+  const stopTimeRef = useRef(null)
 
   useEffect(() => {
     initDB().then(() => {
@@ -81,6 +84,7 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     lastDBUpdateTimeRef.current = null; 
+    stopTimeRef.current = null; 
     setDistanceMoved(0);
     setMapCenter(null);
     setPathCoords([]); 
@@ -92,7 +96,15 @@ function App() {
         async (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+          const speed = position.coords.speed;
           const now = Date.now();
+
+
+          if (accuracy > 25) {
+            console.warn(`Ignoring inaccurate GPS ping (${accuracy.toFixed(0)}m variance)`);
+            return; 
+          }
 
           setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setMapCenter({ lat, lng });
@@ -110,13 +122,30 @@ function App() {
                 lng
               );
               
-              if (dist < 5) {
+              const isEffectivelyStopped = (speed !== null && speed < 1.0) || dist < 5;
+
+              if (isEffectivelyStopped) {
                 setDistanceMoved("0.00");
-                setIdleState('Checking Traffic... ⏳');
-                currentStatus = await checkTraffic(lat, lng);
+                
+                
+                if (!stopTimeRef.current) stopTimeRef.current = now;
+                
+                const timeSpentStopped = now - stopTimeRef.current;
+
+                
+                if (timeSpentStopped < 60000) { 
+                  
+                  currentStatus = 'Traffic / Light 🚦';
+                } else {
+                
+                  setIdleState('Checking Traffic... ⏳');
+                  currentStatus = await checkTraffic(lat, lng);
+                }
               } else {
+                // The car is moving! Reset the stopwatch.
                 setDistanceMoved(dist.toFixed(2));
                 currentStatus = 'Moving 🚗';
+                stopTimeRef.current = null; 
               }
             } else {
               currentStatus = 'Genuine Idle 🛑';
@@ -186,10 +215,10 @@ function App() {
 
   
   const getStatusColor = (statusText) => {
-    if (statusText.includes('Moving')) return '#3b82f6';
-    if (statusText.includes('Traffic')) return '#eab308';
-    if (statusText.includes('Idle')) return '#ef4444';
-    return '#94a3b8';
+    if (statusText.includes('Moving')) return '#3b82f6'; 
+    if (statusText.includes('Traffic') || statusText.includes('Light')) return '#eab308'; 
+    if (statusText.includes('Idle')) return '#ef4444';   
+    return '#94a3b8'; 
   }
 
   return (
