@@ -52,6 +52,9 @@ function App() {
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
   const lastDBUpdateTimeRef = useRef(null) 
+  
+  
+  const idleCountRef = useRef(0)
 
   useEffect(() => {
     initDB().then(() => {
@@ -81,6 +84,7 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     lastDBUpdateTimeRef.current = null; 
+    idleCountRef.current = 0;
     setDistanceMoved(0);
     setMapCenter(null);
     setPathCoords([]); 
@@ -112,11 +116,18 @@ function App() {
               
               if (dist < 5) {
                 setDistanceMoved("0.00");
-                setIdleState('Checking Traffic... ⏳');
-                currentStatus = await checkTraffic(lat, lng);
+                idleCountRef.current += 1;
+                
+                if (idleCountRef.current === 1) {
+                  currentStatus = 'Traffic Idle 🚦';
+                } else {
+                  setIdleState('Checking Traffic... ⏳');
+                  currentStatus = await checkTraffic(lat, lng);
+                }
               } else {
                 setDistanceMoved(dist.toFixed(2));
                 currentStatus = 'Moving 🚗';
+                idleCountRef.current = 0;
               }
             } else {
               currentStatus = 'Genuine Idle 🛑';
@@ -184,12 +195,11 @@ function App() {
   const mapLat = location.lat !== '--' ? parseFloat(location.lat) : 0;
   const mapLng = location.lng !== '--' ? parseFloat(location.lng) : 0;
 
-  // FIXED: Checked for Traffic first before checking for Idle
   const getStatusColor = (statusText) => {
-    if (statusText.includes('Moving')) return '#3b82f6'; // Bright Blue
-    if (statusText.includes('Traffic')) return '#eab308'; // Bright Yellow
-    if (statusText.includes('Idle')) return '#ef4444';   // Bright Red
-    return '#94a3b8'; // Default Slate/Grey
+    if (statusText.includes('Moving')) return '#3b82f6'; 
+    if (statusText.includes('Traffic')) return '#eab308'; 
+    if (statusText.includes('Idle')) return '#ef4444';   
+    return '#94a3b8'; 
   }
 
   return (
