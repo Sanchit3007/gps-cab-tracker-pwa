@@ -52,7 +52,6 @@ function App() {
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
   const lastDBUpdateTimeRef = useRef(null) 
-  const stopTimeRef = useRef(null)
 
   useEffect(() => {
     initDB().then(() => {
@@ -82,7 +81,6 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     lastDBUpdateTimeRef.current = null; 
-    stopTimeRef.current = null;
     setDistanceMoved(0);
     setMapCenter(null);
     setPathCoords([]); 
@@ -94,35 +92,12 @@ function App() {
         async (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          const accuracy = position.coords.accuracy;
-          const speed = position.coords.speed; 
           const now = Date.now();
 
-          
-          if (accuracy > 30) {
-            if (speed === null || speed < 1.0) {
-              if (!lastDBUpdateTimeRef.current || now - lastDBUpdateTimeRef.current >= 30000) {
-                const currentStatus = 'Genuine Idle (Indoors) 🏢';
-                setIdleState(currentStatus);
-                lastDBUpdateTimeRef.current = now;
-                
-                try {
-                  await addLocation(lastLocationRef.current?.lat || lat, lastLocationRef.current?.lng || lng, currentStatus);
-                  if (showHistory) loadHistory();
-                } catch (error) {
-                   console.error('Database save failed:', error);
-                }
-              }
-            }
-            return;
-          }
-
-          
           setLocation({ lat: lat.toFixed(5), lng: lng.toFixed(5) });
           setMapCenter({ lat, lng });
           setPathCoords(prev => [...prev, { lat, lng }]);
 
-          
           if (!lastDBUpdateTimeRef.current || now - lastDBUpdateTimeRef.current >= 30000) {
             let currentStatus = 'Moving 🚗';
             let dist = 0;
@@ -135,25 +110,13 @@ function App() {
                 lng
               );
               
-              const isEffectivelyStopped = (speed !== null && speed < 1.0) || dist < 5;
-
-              if (isEffectivelyStopped) {
+              if (dist < 5) {
                 setDistanceMoved("0.00");
-                
-                
-                if (!stopTimeRef.current) stopTimeRef.current = now;
-                const timeSpentStopped = now - stopTimeRef.current;
-
-                if (timeSpentStopped < 60000) { 
-                  currentStatus = 'Traffic / Light 🚦';
-                } else {
-                  setIdleState('Checking Traffic... ⏳');
-                  currentStatus = await checkTraffic(lat, lng);
-                }
+                setIdleState('Checking Traffic... ⏳');
+                currentStatus = await checkTraffic(lat, lng);
               } else {
                 setDistanceMoved(dist.toFixed(2));
                 currentStatus = 'Moving 🚗';
-                stopTimeRef.current = null;
               }
             } else {
               currentStatus = 'Genuine Idle 🛑';
@@ -221,12 +184,12 @@ function App() {
   const mapLat = location.lat !== '--' ? parseFloat(location.lat) : 0;
   const mapLng = location.lng !== '--' ? parseFloat(location.lng) : 0;
 
+  // FIXED: Checked for Traffic first before checking for Idle
   const getStatusColor = (statusText) => {
     if (statusText.includes('Moving')) return '#3b82f6'; // Bright Blue
-    if (statusText.includes('Indoors')) return '#22c55e'; // Bright Green (for indoor parking)
-    if (statusText.includes('Traffic') || statusText.includes('Light')) return '#eab308'; // Bright Yellow
-    if (statusText.includes('Idle')) return '#ef4444'; // Bright Red
-    return '#94a3b8';
+    if (statusText.includes('Traffic')) return '#eab308'; // Bright Yellow
+    if (statusText.includes('Idle')) return '#ef4444';   // Bright Red
+    return '#94a3b8'; // Default Slate/Grey
   }
 
   return (
@@ -318,7 +281,7 @@ function App() {
                           <td>{new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                           <td style={{ color: '#94a3b8' }}>{data.lat.toFixed(4)}, {data.lng.toFixed(4)}</td>
                           <td style={{ color: getStatusColor(data.status), fontWeight: 'bold' }}>
-                            {data.status.replace(/🚗|🛑|🚦|⏳|🏢/g, '').trim()}
+                            {data.status.replace(/🚗|🛑|🚦|⏳/g, '').trim()}
                           </td>
                         </tr>
                       ))
