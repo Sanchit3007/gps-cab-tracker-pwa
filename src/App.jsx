@@ -52,9 +52,6 @@ function App() {
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
   const lastDBUpdateTimeRef = useRef(null) 
-  
-  
-  const idleCountRef = useRef(0)
 
   useEffect(() => {
     initDB().then(() => {
@@ -84,7 +81,6 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     lastDBUpdateTimeRef.current = null; 
-    idleCountRef.current = 0;
     setDistanceMoved(0);
     setMapCenter(null);
     setPathCoords([]); 
@@ -114,20 +110,24 @@ function App() {
                 lng
               );
               
-              if (dist < 5) {
-                setDistanceMoved("0.00");
-                idleCountRef.current += 1;
+              if (dist >= 20) {
+                setDistanceMoved(dist.toFixed(2));
+                currentStatus = 'Moving 🚗';
+              } else if (dist >= 5 && dist < 20) {
+                setDistanceMoved(dist.toFixed(2));
+                currentStatus = 'Traffic Idle 🚦';
+              } else {
                 
-                if (idleCountRef.current === 1) {
+                setDistanceMoved("0.00");
+                
+                if (idleState.includes('Traffic Idle')) {
                   currentStatus = 'Traffic Idle 🚦';
+                } else if (idleState.includes('Genuine Idle')) {
+                  currentStatus = 'Genuine Idle 🛑';
                 } else {
                   setIdleState('Checking Traffic... ⏳');
                   currentStatus = await checkTraffic(lat, lng);
                 }
-              } else {
-                setDistanceMoved(dist.toFixed(2));
-                currentStatus = 'Moving 🚗';
-                idleCountRef.current = 0;
               }
             } else {
               currentStatus = 'Genuine Idle 🛑';
