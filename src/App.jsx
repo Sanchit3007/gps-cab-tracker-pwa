@@ -52,6 +52,9 @@ function App() {
   const wakeLockRef = useRef(null)
   const lastLocationRef = useRef(null)
   const lastDBUpdateTimeRef = useRef(null) 
+  
+  // State Memory to keep the UI stable
+  const currentStatusRef = useRef('Genuine Idle 🛑')
 
   useEffect(() => {
     initDB().then(() => {
@@ -81,6 +84,7 @@ function App() {
     setIdleState('Initializing...');
     lastLocationRef.current = null;
     lastDBUpdateTimeRef.current = null; 
+    currentStatusRef.current = 'Genuine Idle 🛑'; 
     setDistanceMoved(0);
     setMapCenter(null);
     setPathCoords([]); 
@@ -99,7 +103,6 @@ function App() {
           setPathCoords(prev => [...prev, { lat, lng }]);
 
           if (!lastDBUpdateTimeRef.current || now - lastDBUpdateTimeRef.current >= 30000) {
-            let currentStatus = 'Moving 🚗';
             let dist = 0;
 
             if (lastLocationRef.current) {
@@ -110,35 +113,40 @@ function App() {
                 lng
               );
               
-              if (dist >= 20) {
+              if (dist >= 15) {
+                // Moving fast
                 setDistanceMoved(dist.toFixed(2));
-                currentStatus = 'Moving 🚗';
-              } else if (dist >= 5 && dist < 20) {
+                currentStatusRef.current = 'Moving 🚗';
+              } else if (dist >= 5 && dist < 15) {
+                // Creeping forward = Bumper to bumper traffic
                 setDistanceMoved(dist.toFixed(2));
-                currentStatus = 'Traffic Idle 🚦';
+                currentStatusRef.current = 'Traffic Idle 🚦';
               } else {
                 
                 setDistanceMoved("0.00");
+
                 
-                if (idleState.includes('Traffic Idle')) {
-                  currentStatus = 'Traffic Idle 🚦';
-                } else if (idleState.includes('Genuine Idle')) {
-                  currentStatus = 'Genuine Idle 🛑';
+                setIdleState('Checking Map... ⏳');
+                const apiResult = await checkTraffic(lat, lng);
+                
+                if (apiResult && apiResult.includes('Traffic')) {
+                  
+                  currentStatusRef.current = 'Traffic Idle 🚦';
                 } else {
-                  setIdleState('Checking Traffic... ⏳');
-                  currentStatus = await checkTraffic(lat, lng);
+                  
+                  currentStatusRef.current = 'Genuine Idle 🛑';
                 }
               }
             } else {
-              currentStatus = 'Genuine Idle 🛑';
+              currentStatusRef.current = 'Genuine Idle 🛑';
             }
 
-            setIdleState(currentStatus);
+            setIdleState(currentStatusRef.current);
             lastLocationRef.current = { lat, lng };
             lastDBUpdateTimeRef.current = now; 
             
             try {
-              await addLocation(lat, lng, currentStatus);
+              await addLocation(lat, lng, currentStatusRef.current);
               if (showHistory) loadHistory(); 
             } catch (error) {
               console.error('Database save failed:', error);
@@ -198,7 +206,7 @@ function App() {
   const getStatusColor = (statusText) => {
     if (statusText.includes('Moving')) return '#3b82f6'; 
     if (statusText.includes('Traffic')) return '#eab308'; 
-    if (statusText.includes('Idle')) return '#ef4444';   
+    if (statusText.includes('Genuine') || statusText.includes('Idle')) return '#ef4444'; 
     return '#94a3b8'; 
   }
 
